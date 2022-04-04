@@ -1,6 +1,6 @@
 ---
 title: "Time Series Intermediate Data"
-author: "Danielle Sebring"
+author: "Danielle Sebring & Steven Barnett"
 date: "3/24/2022"
 output: pdf_document
 ---
