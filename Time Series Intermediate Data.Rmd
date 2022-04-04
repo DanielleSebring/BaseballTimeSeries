@@ -1,0 +1,55 @@
+---
+title: "Time Series Intermediate Data"
+author: "Danielle Sebring"
+date: "3/24/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Spring 2022 5414/baseballdatabank-master/core")
+library("Lahman")
+library("dplyr")
+```
+
+```{data}
+batting <- read.csv("Batting.csv")
+pitching <- read.csv("Pitching.csv")
+
+## Creating Missing Batting Variables ##
+names(batting)
+bat <- batting %>%
+  mutate(BA = H/AB,
+         PA = AB+BB+HBP+SF+SH,
+         X1B = H-X2B-X3B-HR,
+         #Age
+         OBP = (H+BB+HBP)/(AB+BB+HBP+SF),
+         #OPSplus = 100*(OBP/leagueOBP + SLG/leagueSLG -1),
+         TB = 1*X1B+2*X2B+3*X3B+4*HR,
+         SLG = TB/AB,
+         OPS = OBP+SLG,
+         #LOB = left on base
+         R.G <- R/G
+         )
+
+## Creating Missing Pitching Variables ##
+names(pitching)
+pitch <- pitching %>%
+  mutate(RA.G = R/G,
+         #P = number of pitches used in games,
+         #Age,
+         WLP = W/(W+L),
+         #BF = batters faced,
+         #ERAplus = 100*(leagueERA/ERA),
+         IP = IPouts/3,
+         #FIP = (13*HR+3*(BB+HBP)-2*SO)/IP + LeagueConstant(MLB Avg ERA),
+         WHIP = (BB+H)/IP,
+         H9 = 9*H/IP,
+         HR9 = 9*HR/IP,
+         BB9 = 9*BB/IP,
+         SO9 = 9*SO/IP,
+         SO.W <- SO/BB,
+         #LOB = left on base,
+         )
+```
+
