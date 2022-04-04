@@ -1,6 +1,6 @@
 ---
 title: "Time Series Intermediate Data"
-author: "Danielle Sebring + Steven Barnett"
+author: "Danielle Sebring & Steven Barnett"
 date: "4/5/2022"
 output: pdf_document
 ---
@@ -15,7 +15,7 @@ library("dplyr")
 
 ## Problem Statement
 
-Major League Baseball (MLB) has collected data on its players and their performances for over 100 years since 1907. This rich supply of data allows one to investigate and learn about trends in performance over time. Additionally, the game of baseball itself has evolved over the years. This is due to a variety of factors, ranging from the introduction of new technology to changes in the rules established by MLB. For example, the advent of sports analytics in the early 2000s has had an enormous impact on the game. Therefore, we are going to investigate the evolution of MLB player, team, division, and league-wide statistics over time. We would like to identify certain events in history, outside influences, and changes to the game itself and how they alter player, team, division, and league-wide performance moving forward. We would also like to consider relationships between different statistics and correlations among their individual time series.
+Major League Baseball (MLB) has collected data on its players and their performances since 1871. This rich supply of data allows one to investigate and learn about trends in performance over time. Additionally, the game of baseball itself has evolved over the years. This is due to a variety of factors, ranging from the introduction of new technology to changes in the rules established by MLB. For example, the advent of sports analytics in the early 2000s has had an enormous impact on the game. Therefore, we are going to investigate the evolution of MLB player, team, division, and league-wide statistics over time. We would like to identify certain events in history, outside influences, and changes to the game itself and how they alter player, team, division, and league-wide performance moving forward. We would also like to consider relationships between different statistics and correlations among their individual time series.
 
 ## Data Collection
 
@@ -135,11 +135,9 @@ pitch_teams <- teams %>%
          )
 ```
 
-Our initial data source has restricted easy access to its database. As a result, we searched for a database with similar content and found it in *Lahman's Baseball Database*. This database is much cleaner and provides the potential 
-for in-depth analysis down to an individual player-by-player level.
+Our initial data source, Baseball Reference via Bill Petti's baseballr package, has restricted access to the database. As a result, we searched for a database with similar content and found it Lahman's Baseball Database. This database is much cleaner, easier to collect data from, and provides the potential for in-depth analysis down to an individual player-by-player level.
 
-Initial data manipulation required aggregating the player level statistics to the league and team level. Some statistics present in our previous data source (e.g. batting average) were not present in Lahman's, so we had to do some calculations in order to maintain the consistency. After all data manipulation and cleanup, 
-we have the following statistics for the years 1871-2021:
+Initial data manipulation required aggregating the player level statistics to the league and team level. Some statistics present in the Baseball Reference database (e.g. batting average) were not present in Lahman's, so we had to do some calculations in order to maintain the consistency. After all data manipulation and cleanup, we have the following statistics for the years 1871-2021:
 
 * **Batting**:
   + Games, At-bats, Runs, Hits, Singles, Doubles, Triples, Home Runs, RBIs, Stolen Bases, Runners Caught Stealing, Walks, Strikeouts, Intentional Walks, Batters Hit by Pitch, Bunts, Sacrifice Fly-outs, Ground-out Double Plays, Batting Average, Plate Appearances, On-base Percentage, Total Bases, Slugging Percentage, On-base + Slugging Percentage, Runs per Game
