@@ -37,7 +37,7 @@ bat <- batting %>%
          SLG = TB/AB,
          OPS = OBP+SLG,
          #LOB = left on base
-         R.G <- R/G
+         R.G = R/G
          )
 
 ## Summarize league-wide statistics by year
@@ -53,7 +53,7 @@ bat_league <- batting %>%
          TB = 1*X1B+2*X2B+3*X3B+4*HR,
          SLG = TB/AB,
          OPS = OBP+SLG,
-         R.G <- R/G)
+         R.G = R/G)
 
 ## Summarize team batting statistics by year
 bat_teams <- teams %>% 
@@ -69,7 +69,7 @@ bat_teams <- teams %>%
          TB = 1*X1B+2*X2B+3*X3B+4*HR,
          SLG = TB/AB,
          OPS = OBP+SLG,
-         R.G <- R/G)
+         R.G = R/G)
 
 ## Creating Missing Pitching Variables ##
 names(pitching)
@@ -87,7 +87,7 @@ pitch <- pitching %>%
          HR9 = 9*HR/IP,
          BB9 = 9*BB/IP,
          SO9 = 9*SO/IP,
-         SO.W <- SO/BB,
+         SO.W = SO/BB,
          #LOB = left on base,
          )
 
@@ -143,9 +143,11 @@ Initial data manipulation required aggregating the player level statistics to th
   + Games, At-bats, Runs, Hits, Singles, Doubles, Triples, Home Runs, RBIs, Stolen Bases, Runners Caught Stealing, Walks, Strikeouts, Intentional Walks, Batters Hit by Pitch, Bunts, Sacrifice Fly-outs, Ground-out Double Plays, Batting Average, Plate Appearances, On-base Percentage, Total Bases, Slugging Percentage, On-base + Slugging Percentage, Runs per Game
 
 * **Pitching**
-  + Games, Games Started, Complete Cames, Shutouts, Saves, Outs Pitched, Hits, Earned runs, Home Runs, Walks, Strikeouts, Opponent's Batting Average, Earned Run Average, Intentional Walks, Wild Pitches, Batter Hit by Pitch, Balks, Batters faced by Pitcher, Games Finished, Runs Allowed, Sacrifice Bunts, Sacrifice Fly-outs, Ground-out double Plays, Runs per Game, Win-loss Percentage, Innings Pitched, Walks/Hits by Inning,  Hits per Nine Innings, Home Runs per Nine Innings, Walks per Nine Innings, Strikeouts per Nine Innings, Strikeouts per Walk, Number of Pitchers 
+  + Games, Games Started, Complete Games, Shutouts, Saves, Outs Pitched, Hits, Earned runs, Home Runs, Walks, Strikeouts, Opponent's Batting Average, Earned Run Average, Intentional Walks, Wild Pitches, Batter Hit by Pitch, Balks, Batters faced by Pitcher, Games Finished, Runs Allowed, Sacrifice Bunts, Sacrifice Fly-outs, Ground-out double Plays, Runs per Game, Win-loss Percentage, Innings Pitched, Walks/Hits by Inning,  Hits per Nine Innings, Home Runs per Nine Innings, Walks per Nine Innings, Strikeouts per Nine Innings, Strikeouts per Walk, Number of Pitchers 
   
 ## Exploratory Data Analysis
+
+### Data Types 
 
 The statistics recorded in our dataset fall into a few different categories of data. For instance, we have many statistics that are count data (e.g. hits, strikeouts, walks, etc). Most of these count measurements lead to non-stationary time series, as shown below:
 
@@ -157,7 +159,7 @@ plot(y = pitch_league$SO, x = pitch_league$yearID, type = "l", xlab = "Year",
      ylab = "Strikeouts")
 ```
 
-As we can see, these are clearly non-stationary. This is expected. Over the past 100-150 years, Major League Baseball (MLB) has grown, either to the expansion of the league to include more teams, or adding more games to the yearly schedule. As such, the number of hits, strikeouts, etc. will also increase. For these time series, we will considering either differencing or some type of model that accounts for the non-stationarity (e.g. MA, ARMA, ARIMA, etc)
+As we can see, these are clearly non-stationary. This is expected. Over the past 100-150 years, Major League Baseball (MLB) has grown, either to the expansion of the league to include more teams, or adding more games to the yearly schedule. As such, the number of hits, strikeouts, etc. will also increase. For these time series, we will considering either differencing or some type of model that accounts for the non-stationarity (e.g. MA, ARMA, ARIMA, etc).
 
 Another type of data we encounter in this data set is percentages (e.g. batting average, slugging percentage, on-base percentage. Each of these statistics fall between 0 and 1. Although this does not imply stationarity, these statistics cannot increase or decrease without bound.
 
@@ -168,3 +170,124 @@ plot(y = bat_league$BA, x = bat_league$yearID, type = "l", xlab = "Year",
 plot(y = bat_league$SLG, x = bat_league$yearID, type = "l", xlab = "Year", 
      ylab = "Slugging Percentage")
 ```
+
+We also have a couple fieds that are calculated averages. These fields don't have the same bounds that percentages do, but also do not increase without bound as the counts seem to. These fields include Runs Per Game, Hits Per Nine Innings, Earned Run Average, etc.
+
+```{r eda3, echo = FALSE}
+par(mfrow = c(1,2))
+plot(y = bat_league$R.G, x = bat_league$yearID, type = "l", xlab = "Year", 
+     ylab = "Runs Per Game")
+plot(y = pitch_league$H9, x = pitch_league$yearID, type = "l", xlab = "Year", 
+     ylab = "Hits Per Nine Innings")
+```
+
+### Initial Models
+
+```{r eda4, include = FALSE}
+years <- bat_league$yearID
+hits <- bat_league$H
+diff_hits <- diff(hits)
+max_order <- 5
+hits_model <- ar(diff_hits, order.max = max_order, aic = TRUE, method = "mle")
+
+# AIC = Akaike Information Criterion
+hits_AIC <- hits_model$aic
+n = length(hits)
+# BIC = Bayesian Information Criterion
+hits_BIC <- hits_model$aic - 2*((0:max_order)+1) + log(n) * ((0:max_order)+1)
+# Approximate posterior probabilities for the several models
+approx_post_probs <- exp(-0.5*hits_BIC) / sum(exp(-0.5*hits_BIC))
+hits_ar_model_df <- round(rbind(hits_AIC, hits_BIC, approx_post_probs), 2)
+rownames(hits_ar_model_df) <- c("Akaike Information Criterion", "Bayesian Information Criterion", "Approximate Posterior Probabilities")
+hits_ar1 <- ar(diff_hits, order.max = 1, aic = TRUE, method = "mle")
+
+max.p <- 2
+max.d <- 1
+max.q <- 2
+BIC.array <- array(NA,dim=c(max.p+1,max.d+1,max.q+1))
+AIC.array <- array(NA,dim=c(max.p+1,max.d+1,max.q+1))
+best.bic <- 1e8
+x.ts <- hits
+for (p in 0:max.p) {
+  for (d in 0:max.d) {
+    for(q in 0:max.q) {
+      # This is a modification of a function originally from the book:
+      # Cowpertwait, P.S.P., Metcalfe, A.V. (2009), Introductory Time 
+      # Series with R, Springer.
+      # Modified by M.A.R. Ferreira (2016, 2020).
+      cat("p = ", p, ", d = ", d, ", q = ", q, "\n")
+      fit <- tryCatch(
+                {  arima(x.ts, order = c(p,d,q), method="CSS-ML")
+                },
+                error = function(cond){
+                    message("Original error message:")
+                    message(cond)
+                    # Choose a return value in case of error
+                    return(NA)
+                }
+                )
+       if(!is.na(fit)) { 
+          number.parameters <- length(fit$coef) + 1
+          BIC.array[p+1,d+1,q+1] = -2*fit$loglik + log(n)*number.parameters
+          AIC.array[p+1,d+1,q+1] = -2*fit$loglik + 2*number.parameters
+
+          if (BIC.array[p+1,d+1,q+1] < best.bic) 
+          {
+            best.bic <- BIC.array[p+1,d+1,q+1]
+            best.fit <- fit
+            best.model <- c(p,d,q) 
+          }
+       }
+    }
+  }
+}
+
+best.bic
+best.fit
+best.model
+
+hits_arima_df <- cbind(BIC.array[,1,1], BIC.array[,2,1], BIC.array[,1,2], 
+                       BIC.array[,2,2], BIC.array[,1,3], BIC.array[,2,3])
+rownames(hits_arima_df) <- c("p = 0", "p = 1", "p = 2")
+colnames(hits_arima_df) <- c("q = 0, d = 0", "q = 1, d = 0", "q = 0, d = 1", 
+                             "q = 1, d = 1", "q = 0, d = 2", "q = 1, d = 2")
+```
+
+As shown above, our dataset has an extensive number of statistics observed through time. First, we'll look number of hits. This is a simple time series that can help us hone our analysis skills. We displayed a plot earlier that showed this time series is non-stationary. To make it stationary and allow for analysis using an AR(p) model, we will conduct differencing. There doesn't seem to be any sort of seasonality, so we'll calculate the differenced time series using a lag of one. We can see below that differencing is effective at removing the non-stationarity. Also displayed below is the auto-correlation function (ACF) and the partial auto-correlation function (PACF).
+
+```{r, echo = FALSE}
+par(mfrow = c(1, 3))
+plot(diff_hits, type = "l", ylab = "Differenced Hits")
+acf(diff_hits, main = "")
+pacf(diff_hits, main = "")
+```
+
+Both the ACF and PACF above show that the time series may only depend on the first and second logs for a given time point. We will fit an AR(p) model and calculate the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC) to see which order model fits best. To be safe, we  will consider the models of up to order 5.
+
+```{r, echo = FALSE}
+knitr::kable(hits_ar_model_df)
+```
+
+Both the AIC and BIC agree that the AR(2) is the most appropriate. Additionally, 
+we can see that the approximate posterior probability for the AR(2) model is over 0.7. Assuming that the true model is an AR(p) model of order 0-5, the AR(2) model is likely the best model. We cannot completely discount the AR(1) and AR(3) models, but it seems unlikely for them to be the correct model. Therefore, our fitted AR(2) model is as follows:
+
+$$
+y_t - \mu = -0.499 \cdot(y_{t - 1} - \mu) + \epsilon_t
+$$
+
+Here we have only considered an AR(p) model. But we would also like to consider other models, such as the ARMA or ARIMA models. We fit ARIMA models for all combinations of auto regressive coefficients ($p$), moving average coefficients ($q$), and differencing coefficients ($d$). Below are our results:
+
+```{r, echo = FALSE}
+knitr::kable(round(hits_arima_df, 2))
+```
+
+The best model, according to the BIC criterion, is the ARIMA(0, 1, 1) model. This is different than what we saw previously when only considering AR(p) models. The AR(2) model we fit earlier had a BIC of 2958.71, so this ARIMA(0, 1, 1) model improves upon that. It is also a simpler model with one less coefficient.
+
+$$
+y_t = 26555.05 + 0.7858 \epsilon_{t - 1} + \epsilon_t
+$$
+
+### Next Steps
+
+We have only included one time series in this report, that of number of league-wide hits per MLB season. We have begun to explore other time series, but will not include them for brevity's sake. Our next steps will be to conduct forecasting for these time series and see how they perform against real data. Additionally, we want to look at how the individual time series relate to each other through cross-correlation functions. Lastly, as we learn more advanced topics in class, we plan to incorporate Time Varying Autoregressive (TVAR) models and Mixed Model Time Series.
+
