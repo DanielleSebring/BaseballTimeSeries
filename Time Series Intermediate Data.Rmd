@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #knitr::opts_knit$set(root.dir = data_dir)
 library("Lahman")
 library("dplyr")
+library("kableExtra")
 ```
 
 ## Problem Statement
@@ -20,9 +21,9 @@ Major League Baseball (MLB) has collected data on its players and their performa
 ## Data Collection
 
 ```{r data, include = FALSE}
-batting <- read.csv("Batting.csv")
-pitching <- read.csv("Pitching.csv")
-teams <- read.csv("Teams.csv")
+batting <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Batting.csv")
+pitching <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Pitching.csv")
+teams <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Teams.csv")
 
 ## Creating Missing Batting Variables ##
 names(batting)
@@ -135,15 +136,35 @@ pitch_teams <- teams %>%
          )
 ```
 
-Our initial data source, Baseball Reference via Bill Petti's baseballr package, has restricted access to the database. As a result, we searched for a database with similar content and found it Lahman's Baseball Database. This database is much cleaner, easier to collect data from, and provides the potential for in-depth analysis down to an individual player-by-player level.
+Our initial data source, Baseball Reference via Bill Petti's baseballr package, has restricted access to the database. As a result, we searched for a database with similar content and found it in Lahman's Baseball Database. This database is much cleaner, easier to collect data from, and provides the potential for in-depth analysis down to an individual player-by-player level.
 
 Initial data manipulation required aggregating the player level statistics to the league and team level. Some statistics present in the Baseball Reference database (e.g. batting average) were not present in Lahman's, so we had to do some calculations in order to maintain the consistency. After all data manipulation and cleanup, we have the following statistics for the years 1871-2021:
+\newpage
 
 * **Batting**:
-  + Games, At-bats, Runs, Hits, Singles, Doubles, Triples, Home Runs, RBIs, Stolen Bases, Runners Caught Stealing, Walks, Strikeouts, Intentional Walks, Batters Hit by Pitch, Bunts, Sacrifice Fly-outs, Ground-out Double Plays, Batting Average, Plate Appearances, On-base Percentage, Total Bases, Slugging Percentage, On-base + Slugging Percentage, Runs per Game
 
-* **Pitching**
-  + Games, Games Started, Complete Games, Shutouts, Saves, Outs Pitched, Hits, Earned runs, Home Runs, Walks, Strikeouts, Opponent's Batting Average, Earned Run Average, Intentional Walks, Wild Pitches, Batter Hit by Pitch, Balks, Batters faced by Pitcher, Games Finished, Runs Allowed, Sacrifice Bunts, Sacrifice Fly-outs, Ground-out double Plays, Runs per Game, Win-loss Percentage, Innings Pitched, Walks/Hits by Inning,  Hits per Nine Innings, Home Runs per Nine Innings, Walks per Nine Innings, Strikeouts per Nine Innings, Strikeouts per Walk, Number of Pitchers 
+\begin{center}
+```{r bat data table, echo = F}
+bat.names <- c("Player ID","Year", "Player Stint (Order of Appearance in a Season", "Team ID", "League ID", "Games", "At Bats", "Runs", "Hits", "Doubles", "Triples", "Homeruns", "Runs Batted In", "Stolen Bases", "Caught Stealing", "Base on Balls (Walks)", "Strikeouts", "Intentional Base on Balls (Intentional Walks)", "Hit By Pitch", "Sacrifice Hits", "Sacrifice Flies", "Grounded into Double Plays", "Batting Average", "Plate Appearances", "Singles", "On Base Percentage", "Total Bases", "Slugging Percentage", "On Base + Slugging Percentage", "Runs per Game")
+batting.names <- data.frame(matrix(c(names(bat),bat.names),ncol = 2,byrow = F))
+colnames(batting.names) <- c("Code","Definition")
+kable(batting.names)
+```
+\end{center} 
+\newpage
+
+* **Pitching**:
+  
+\begin{center}
+```{r pitch data table, echo = F}
+pitch.names <- c("Player ID","Year", "Player Stint (Order of Appearance in a Season", "Team ID", "League ID", "Wins", "Losses", "Games", "Games Started", "Complete Games", "Shutouts", "Saves", "Outs Pitched", "Hits", "Earned Runs", "Homeruns", "Base on Balls (Walks)", "Strikeouts", "Opponent's Batting Average", "Earned Run Average", "Intentional Base on Balls (Intentional Walks)", "Wild Pitches", "Batters Hit by Pitch", "Balks", "Batters Faced by Pitcher", "Games Finished", "Runs Allowed", "Sacrifice Hits by Opposing Batters", "Sacrifice Flies by Opposing Batters", "Grounded into Double Plays by Opposing Batters", "Runs Allowed per Game", "Win Loss Percentage", "Innings Pitched", "Walks and Hits per Innings Pitched", "Hits per 9 Innings", "Homeruns per 9 Innings", "Base on Balls (Walks) per 9 Innings", "Strikeouts per 9 Innings", "Strikeout to Walk Ratio")
+pitching.names <- data.frame(matrix(c(names(pitch),pitch.names),ncol = 2,byrow = F))
+colnames(pitching.names) <- c("Code","Definition")
+kable(pitching.names)
+```
+\end{center} 
+\newpage
+ 
   
 ## Exploratory Data Analysis
 
@@ -262,12 +283,12 @@ acf(diff_hits, main = "")
 pacf(diff_hits, main = "")
 ```
 
-Both the ACF and PACF above show that the time series may only depend on the first and second logs for a given time point. We will fit an AR(p) model and calculate the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC) to see which order model fits best. To be safe, we  will consider the models of up to order 5.
-
+Both the ACF and PACF above show that the time series may only depend on the first and second lags for a given time point. We will fit an AR(p) model and calculate the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC) to see which order model fits best. To be safe, we  will consider the models of up to order 5.
+\begin{center}
 ```{r, echo = FALSE}
 knitr::kable(hits_ar_model_df)
 ```
-
+\end{center}
 Both the AIC and BIC agree that the AR(2) is the most appropriate. Additionally, 
 we can see that the approximate posterior probability for the AR(2) model is over 0.7. Assuming that the true model is an AR(p) model of order 0-5, the AR(2) model is likely the best model. We cannot completely discount the AR(1) and AR(3) models, but it seems unlikely for them to be the correct model. Therefore, our fitted AR(2) model is as follows:
 
@@ -276,11 +297,11 @@ y_t - \mu = -0.499 \cdot(y_{t - 1} - \mu) + \epsilon_t
 $$
 
 Here we have only considered an AR(p) model. But we would also like to consider other models, such as the ARMA or ARIMA models. We fit ARIMA models for all combinations of auto regressive coefficients ($p$), moving average coefficients ($q$), and differencing coefficients ($d$). Below are our results:
-
+\begin{center}
 ```{r, echo = FALSE}
 knitr::kable(round(hits_arima_df, 2))
 ```
-
+\end{center}
 The best model, according to the BIC criterion, is the ARIMA(0, 1, 1) model. This is different than what we saw previously when only considering AR(p) models. The AR(2) model we fit earlier had a BIC of 2958.71, so this ARIMA(0, 1, 1) model improves upon that. It is also a simpler model with one less coefficient.
 
 $$
