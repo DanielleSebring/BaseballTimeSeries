@@ -7,8 +7,8 @@ output: pdf_document
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-data_dir <- Sys.getenv("DATA_DIR")
-knitr::opts_knit$set(root.dir = data_dir)
+#data_dir <- Sys.getenv("DATA_DIR")
+#knitr::opts_knit$set(root.dir = data_dir)
 library("Lahman")
 library("dplyr")
 ```
