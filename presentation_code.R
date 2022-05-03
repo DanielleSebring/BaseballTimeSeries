@@ -137,6 +137,17 @@ so_order3_smth <- dlmSmooth(so_order3_filt)
 
 ## Fit ARIMA models
 diff_so_ts <- diff(so_ts)
+par(mar = c(2.5, 5.0, 0.5, 0.5))
+plot(diff_so_ts, type = "n", ylab = "", tck = -0.02, ylim = c(-0.45, 0.6), xlab = "Year", 
+     yaxt = "n", xaxt = "n")
+lines(diff_so_ts, ylab = "", tck = -0.02, ylim = c(-0.45, 0.65), xlab = "Year", 
+      yaxt = "n", xaxt = "n")
+axis(2, at = seq(-0.4, 0.6, by = 0.2), las = 1, cex.axis = 1.05,
+     hadj = 0.75)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Strikeouts (First-order difference)", side = 2, line = 3.0)
+
 plot(diff_so_ts)
 acf(diff_so_ts)
 pacf(diff_so_ts)
