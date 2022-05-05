@@ -20,9 +20,9 @@ Major League Baseball (MLB) has collected data on its players and their performa
 
 ```{r data, include = FALSE}
 ## Danielle's Path
-batting <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Batting.csv")
-pitching <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Pitching.csv")
-teams <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Teams.csv")
+#batting <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Batting.csv")
+#pitching <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Pitching.csv")
+#teams <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Teams.csv")
 ## Steven's Path
 batting <- read.csv("~/VTGraduateSchool/SPRING_2022/STAT_5414/Project/BaseballTimeSeries/Datasets/Batting.csv")
 pitching <- read.csv("~/VTGraduateSchool/SPRING_2022/STAT_5414/Project/BaseballTimeSeries/Datasets/Pitching.csv")
@@ -42,29 +42,33 @@ pitch_league <- pitching %>%
 
 Our data source is Lahman's Baseball Database. This database has batting, pitching, and fielding statistics dating back to 1871. Lahman's data allows for a high-level view of trends across the league, as well as potential for in-depth analysis down to an individual team-by-team or player-by-player level. We also referred to the Baseball Reference via Bill Petti's baseballr package, although there is restricted access to the database. Baseball Reference provided some insight on statistics of interest that were not readily available in Lahman's Baseball Database, but that could be calculated through simple data wrangling procedures.
 
-Initial data manipulation required aggregating the player level statistics to the league level. Some statistics present in the Baseball Reference database (e.g. batting average) were not present in Lahman's, so we had to do some calculations in order to maintain the consistency. After all data manipulation and cleanup, we have the following statistics for the years 1871-2021:
-\newpage
+Initial data manipulation required aggregating the player level statistics to the league level. Some statistics present in the Baseball Reference database (e.g. batting average) were not present in Lahman's, so we had to do some calculations in order to maintain the consistency. 
 
-* **Batting**:
+Our data has over 100 different statistics measured over the last century. An analysis of all of these would go beyond the scope of this project. Therefore, we identified six statistics that are indicative of the changes in baseball detrimental to the game's entertainment value: strikeouts, home runs, hits, wild pitches, batters hit by pitch, and sacrifices. Each of these has either increased or decreased over time due to the greater arm strength of pitchers and the resulting higher velocity of pitches. For example, as velocity of pitch has increased, the number of strikeouts naturally increases because batters have a harder time connecting with the ball. Additionally, home runs increase when pitch speed increases because the exit velocity of the ball from the bat is higher, making a home run more likely.
+
+Theses six statistics are all tracked by count (e.g. number of hits in the league per season). However, it is common in sports analytics to look at count variables as averages or rates. This practice reduces extreme values (e.g. the 2020 MLB season was shortened due to COVID-19, resulting in a drastic drop in all statistics) and produces more well-behaved residuals in model fitting. Therefore, for each of these six statistics, we calculate the "per nine innings" rate.
+
+We also found that data from the early years is highly variable. We attribute this to the rudimentary methods of data collection available in the late 1800s as well as the changes that often come as an organization begins. The National League of MLB officially began in 1876. Due to this early variability, we only consider the last 100 years (1922-2021). Therefore, after all data manipulation and cleanup, we have the following statistics for the years 1922-2021:
 
 \begin{center}
-```{r bat data table, echo = F}
-bat.names <- c("Player ID","Year", "Player Stint (Order of Appearance in a Season", "Team ID", "League ID", "Games", "At Bats", "Runs", "Hits", "Doubles", "Triples", "Homeruns", "Runs Batted In", "Stolen Bases", "Caught Stealing", "Base on Balls (Walks)", "Strikeouts", "Intentional Base on Balls (Intentional Walks)", "Hit By Pitch", "Sacrifice Hits", "Sacrifice Flies", "Grounded into Double Plays", "Batting Average", "Plate Appearances", "Singles", "On Base Percentage", "Total Bases", "Slugging Percentage", "On Base + Slugging Percentage", "Runs per Game")
-batting.names <- data.frame(matrix(c(names(bat),bat.names),ncol = 2,byrow = F))
-colnames(batting.names) <- c("Code","Definition")
-kable(batting.names)
+```{r stats data table, echo = F}
+stat_names <- c("Strikeouts per Nine Innings", "Home Runs per Nine Innings",
+                "Hits per Nine Innings", "Wild Pitches per Nine Innings", 
+                "Hit by Pitch per Nine Innings", 
+                "Sacrifices (bunts and fly outs) per Nine Innings")
+stat_ids <- c("SO9", "HR9", "H9", "WP9", "HBP9", "SAC9")
+stats <- data.frame(matrix(c(stat_ids, stat_names), ncol = 2, byrow = F))
+colnames(stats) <- c("Code", "Definition")
+kable(stats)
 ```
 \end{center} 
-\newpage
 
-* **Pitching**:
-  
-\begin{center}
-```{r pitch data table, echo = F}
-pitch.names <- c("Player ID","Year", "Player Stint (Order of Appearance in a Season", "Team ID", "League ID", "Wins", "Losses", "Games", "Games Started", "Complete Games", "Shutouts", "Saves", "Outs Pitched", "Hits", "Earned Runs", "Homeruns", "Base on Balls (Walks)", "Strikeouts", "Opponent's Batting Average", "Earned Run Average", "Intentional Base on Balls (Intentional Walks)", "Wild Pitches", "Batters Hit by Pitch", "Balks", "Batters Faced by Pitcher", "Games Finished", "Runs Allowed", "Sacrifice Hits by Opposing Batters", "Sacrifice Flies by Opposing Batters", "Grounded into Double Plays by Opposing Batters", "Runs Allowed per Game", "Win Loss Percentage", "Innings Pitched", "Walks and Hits per Innings Pitched", "Hits per 9 Innings", "Homeruns per 9 Innings", "Base on Balls (Walks) per 9 Innings", "Strikeouts per 9 Innings", "Strikeout to Walk Ratio")
-pitching.names <- data.frame(matrix(c(names(pitch),pitch.names),ncol = 2,byrow = F))
-colnames(pitching.names) <- c("Code","Definition")
-kable(pitching.names)
-```
-\end{center} 
-\newpage
+## Model Fitting
+
+## Diagnostics
+
+## Forecasting
+
+## Discussion
+
+## Future Work
