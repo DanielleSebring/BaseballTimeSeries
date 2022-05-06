@@ -10,6 +10,12 @@ knitr::opts_chunk$set(echo = TRUE)
 library("Lahman")
 library("dplyr")
 library("kableExtra")
+
+## Colors for plots
+orange <- "#e87722"
+maroon <- "#861f41"
+gray <- "#75787b"
+yellow <- "#ff9800"
 ```
 
 ## Problem Statement
@@ -20,13 +26,9 @@ Major League Baseball (MLB) has collected data on its players and their performa
 
 ```{r data, include = FALSE}
 ## Danielle's Path
-#batting <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Batting.csv")
 #pitching <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Pitching.csv")
-#teams <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Teams.csv")
 ## Steven's Path
-batting <- read.csv("~/VTGraduateSchool/SPRING_2022/STAT_5414/Project/BaseballTimeSeries/Datasets/Batting.csv")
 pitching <- read.csv("~/VTGraduateSchool/SPRING_2022/STAT_5414/Project/BaseballTimeSeries/Datasets/Pitching.csv")
-teams <- read.csv("~/VTGraduateSchool/SPRING_2022/STAT_5414/Project/BaseballTimeSeries/Datasets/Teams.csv")
 
 ## Creating missing pitching variables and summarize league-wide statistics 
 ## of interset by year since 1922
@@ -51,7 +53,7 @@ Theses six statistics are all tracked by count (e.g. number of hits in the leagu
 We also found that data from the early years is highly variable. We attribute this to the rudimentary methods of data collection available in the late 1800s as well as the changes that often come as an organization begins. The National League of MLB officially began in 1876. Due to this early variability, we only consider the last 100 years (1922-2021). Therefore, after all data manipulation and cleanup, we have the following statistics for the years 1922-2021:
 
 \begin{center}
-```{r stats data table, echo = F}
+```{r stats data table, echo = FALSE}
 stat_names <- c("Strikeouts per Nine Innings", "Home Runs per Nine Innings",
                 "Hits per Nine Innings", "Wild Pitches per Nine Innings", 
                 "Hit by Pitch per Nine Innings", 
@@ -63,7 +65,347 @@ kable(stats)
 ```
 \end{center} 
 
-## Model Fitting
+## Model Selection
+
+```{r initialize_ts, echo = FALSE}
+## Initialize Time Series
+so_ts <- ts(pitch_league$SO9, start = 1922, end = 2021, frequency = 1)
+hr_ts <- ts(pitch_league$HR9, start = 1922, end = 2021, frequency = 1)
+hit_ts <- ts(pitch_league$H9, start = 1922, end = 2021, frequency = 1)
+wp_ts <- ts(pitch_league$WP9, start = 1922, end = 2021, frequency = 1)
+hbp_ts <- ts(pitch_league$HBP9, start = 1922, end = 2021, frequency = 1)
+sac_ts <- ts(pitch_league$SAC9[which(!is.na(pitch_league$SAC9))], 
+             start = 1971, end = 2021, frequency = 1)
+
+par(mfrow = c(2, 3), mar = c(2.5, 4.0, 0.5, 0.5))
+plot(so_ts, type = "n", ylab = "", tck = -0.02, ylim = c(2.5, 9.5), xlab = "Year", 
+      yaxt = "n", xaxt = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(so_ts, ylab = "", tck = -0.02, ylim = c(2.5, 9.5), xlab = "Year", 
+     yaxt = "n", xaxt = "n")
+axis(2, at = c(4, 6, 8, 10), las = 1, cex.axis = 1.05,
+     hadj = 0.5)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Strikeouts", side = 2, line = 1.5)
+
+plot(hr_ts, ylab = "", tck = -0.02, ylim = c(0.35, 1.45), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(hr_ts, ylab = "", tck = -0.02, ylim = c(0.35, 1.45), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(0.4, 1.4, by = 0.2), las = 1, cex.axis = 1.05,
+     hadj = 0.75)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Home Runs", side = 2, line = 2.25)
+
+plot(hit_ts, ylab = "", tck = -0.02, ylim = c(7.5, 11), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(hit_ts, ylab = "", tck = -0.02, ylim = c(7.5, 11), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(8, 11, by = 1), las = 1, cex.axis = 1.05,
+     hadj = 0.5)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Hits", side = 2, line = 1.5)
+
+plot(wp_ts, ylab = "", tck = -0.02, ylim = c(0.1, 0.45), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(wp_ts, ylab = "", tck = -0.02, ylim = c(0.1, 0.45), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(0.15, 0.45, by = 0.1), las = 1, cex.axis = 1.05,
+     hadj = 0.75)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Wild Pitches", side = 2, line = 2.5)
+
+plot(hbp_ts, ylab = "", tck = -0.02, ylim = c(0.1, 0.5), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(hbp_ts, ylab = "", tck = -0.02, ylim = c(0.1, 0.5), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(0.15, 0.45, by = 0.1), las = 1, cex.axis = 1.05,
+     hadj = 0.75)
+axis(1, at = seq(1920, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Hit By Pitch", side = 2, line = 2.5)
+
+plot(sac_ts, ylab = "", tck = -0.02, ylim = c(0.25, 0.85), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+grid(lty = 1, col = "lightgrey", lwd = 1)
+lines(sac_ts, ylab = "", tck = -0.02, ylim = c(0.25, 0.85), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(0.3, 0.8, by = 0.1), las = 1, cex.axis = 1.05,
+     hadj = 0.75)
+axis(1, at = seq(1980, 2020, by = 20), las = 1, cex.axis = 1.05,
+     padj = -0.75)
+mtext("Sacrifices", side = 2, line = 2.25)
+```
+
+Above are displayed the six time series of interest. It is clear at first glance that none of these are stationary time series. Therefore, in order to fit a model to these we will either have to consider a Dynamic Linear Model (DLM) or perform some sort of differencing in order to utilize an Auto Regressive or Moving Average model.
+
+### Differencing
+
+First, we will calculate a first-order difference on each time series in order to consider fitting Auto Regressive Integrated Moving Average (ARIMA) models. The first-order differencing is displayed below.
+
+```{r first_order_diff, echo = FALSE}
+diff_so_ts <- diff(so_ts, lag = 1)
+diff_hr_ts <- diff(hr_ts, lag = 1)
+diff_hit_ts <- diff(hit_ts, lag = 1)
+diff_wp_ts <- diff(wp_ts, lag = 1)
+diff_hbp_ts <- diff(hbp_ts, lag = 1)
+diff_sac_ts <- diff(sac_ts, lag = 1)
+
+par(mfrow = c(2, 3), mar = c(2.5, 5.0, 0.5, 0.5))
+plot(diff_so_ts, type = "n", ylab = "", tck = -0.02, ylim = c(-0.45, 0.6), 
+     xlab = "Year", yaxt = "n", xaxt = "n")
+lines(diff_so_ts, ylab = "", tck = -0.02, ylim = c(-0.45, 0.6), xlab = "Year", 
+     yaxt = "n", xaxt = "n")
+axis(2, at = c(-0.4, -0.2, 0.0, 0.2, 0.4, 0.6), tck = -0.02, las = 1,
+     cex.axis = 1.05, hadj = 0.65)
+axis(1, at = seq(1930, 2010, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Strikeouts", side = 2, line = 3.0)
+
+plot(diff_hr_ts, ylab = "", tck = -0.02, ylim = c(-0.35, 0.35), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+lines(diff_hr_ts, ylab = "", tck = -0.02, ylim = c(-0.35, 0.35), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = c(-0.3, -0.1, 0.1, 0.3), tck = -0.02, las = 1, cex.axis = 1.05, 
+     hadj = 0.65)
+axis(1, at = seq(1930, 2010, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Home Runs", side = 2, line = 3.0)
+
+plot(diff_hit_ts, ylab = "", tck = -0.02, ylim = c(-0.75, 0.75), xlab = "Year",  
+     yaxt = "n", xaxt = "n", type = "n")
+lines(diff_hit_ts, ylab = "", tck = -0.02, ylim = c(-0.75, 0.75), xlab = "Year",  
+     yaxt = "n", xaxt = "n")
+axis(2, at = seq(-0.7, 0.7, by = 0.4), tck = -0.02, las = 1, cex.axis = 1.05, 
+     hadj = 0.65)
+axis(1, at = seq(1930, 2010, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Hits", side = 2, line = 3.0)
+
+plot(diff_wp_ts, ylab = "", ylim = c(-0.08, 0.06), xlab = "Year", yaxt = "n", 
+     xaxt = "n", type = "n")
+lines(diff_wp_ts, ylab = "", ylim = c(-0.08, 0.06), xlab = "Year", yaxt = "n", 
+      xaxt = "n")
+axis(2, at = seq(-0.07, 0.07, by = 0.04), tck = -0.02, las = 1, cex.axis = 1.05, 
+     hadj = 0.75)
+axis(1, at = seq(1930, 2010, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Wild Pitches", side = 2, line = 3.0)
+
+plot(diff_hbp_ts, ylab = "", ylim = c(-0.04, 0.07), xlab = "Year", yaxt = "n", 
+     xaxt = "n", type = "n")
+lines(diff_hbp_ts, ylab = "", ylim = c(-0.04, 0.07), xlab = "Year", yaxt = "n", 
+      xaxt = "n")
+axis(2, at = seq(-0.03, 0.07, by = 0.04), tck = -0.02, las = 1, cex.axis = 1.05, 
+     hadj = 0.75)
+axis(1, at = seq(1930, 2010, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Hit By Pitch", side = 2, line = 3.0)
+
+plot(diff_sac_ts, ylab = "", ylim = c(-0.1, 0.1), xlab = "Year", yaxt = "n", 
+     xaxt = "n", type = "n")
+lines(diff_sac_ts, ylab = "", ylim = c(-0.1, 0.1), xlab = "Year", yaxt = "n", 
+      xaxt = "n")
+axis(2, at = seq(-0.08, 0.08, by = 0.04), tck = -0.02, las = 1, cex.axis = 1.05, 
+     hadj = 0.7)
+axis(1, at = seq(1980, 2020, by = 20), tck = -0.02, las = 1, cex.axis = 1.05, 
+     padj = -0.75)
+mtext("Sacrifices", side = 2, line = 3.0)
+```
+
+For the most part, it appears that the first-order differencing took out all the non-stationarity from these time series. There exists a hint of a positive trend or a prominent increase in variability as time goes on in the Hit By Pitch time series. Additionally, the Sacrifices time series appears to be trending downwards, but that could just be the final time point, which appears to be a negative outlier. 
+
+### Auto Regressive Integrated Moving Average Models 
+
+We will next attempt to  fit different ARIMA models for these time series. First, we plot the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) for each time series to get a sense of any significant lags that would translate into auto regression or moving average coefficients.
+
+```{r plot_acf_pacf, echo = FALSE}
+par(mfcol = c(4, 3), mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_so_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Strikeouts", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_so_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_wp_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Wild Pitches", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_wp_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_hr_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Home Runs", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_hr_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_hbp_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Hit by Pitch", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_hbp_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_hit_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Hits", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_hit_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(diff_sac_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Sacrifices", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(diff_sac_ts, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+```
+
+As shown above, for the most part we do not see any significant lags in the ACF or PACF for any of the differenced time series. In the Hits time series, it appears that the first lag is barely significant in ACF and the PACF. As such, we will consider an ARIMA model with auto regressive order of 0 and 1 and moving average order of 0 and 1. The Wild Pitches times series also has some interesting behavior. The first lag in the ACF is slightly significant, indicating that we should consider an auto regression coefficient of order 1. However, the most intriguing part is the significant lags of 16 and 18. This indicates that there may be some seasonality in this time series. Looking back at the original time series, we do see some cyclical pattern. It remains to be seen if that is of a regular nature or happens by random chance. 
+
+Now that we have some indication of what lags are significant in the models, we fit all combinations of possible order auto regressive, moving average, and differencing components. We calculate the Bayesian Information Criterion (BIC) for each as well as forecasting error for one, two and three step ahead forecasts. We use mean absolute error (MAE), mean squared error (MSE), and mean absolute percentage error (MAPE). Based on these different metrics, we select what we believe to be the best model between performance and simplicity. For brevity's sake, we will only display the output for the Strikeour time series.
+
+```{r arima_model_selection, message = FALSE, echo = FALSE}
+bb_ts <- so_ts ## Insert time series of interest
+n <- length(bb_ts)
+max_p <- 1
+max_d <- 1
+max_q <- 1
+result_df <- data.frame()
+models <- c()
+for (p in 0:max_p) {
+  for (d in 0:max_d) {
+    for (q in 0:max_q) {
+      #cat("p = ", p, ", d = ", d, ", q = ", q, "\n")
+      fit <- tryCatch(
+        {
+          arima(bb_ts, order = c(p, d, q), method = "CSS-ML")
+        },
+        error = function(cond) {
+          message("Original error message:")
+          message(cond)
+          return(NA)
+        })
+        if (!is.na(fit[1])) {
+          num_params <- length(fit$coef) + 1
+          fit_bic <- -2*fit$loglik + log(n)*num_params
+          
+          ## Perform 1, 2, and 3 step ahead forecasting
+          arima_pred_errs <- c()
+          for (step in 1:3) {
+            arima_fore <- rep(NA, 20)
+            for (i in 1:20) {
+              fit <- tryCatch(
+                {
+                  arima(bb_ts[1:(length(bb_ts) - 20 - step + i)],
+                        order = c(p, d, q), method = "CSS-ML")
+                },
+                error = function(cond) {
+                  message("Original error message:")
+                  message(cond)
+                  return(NA)
+                })
+              if (!is.na(fit[1])) {
+                forecast <- predict(fit, n.ahead = step)
+                arima_fore[i] <- forecast$pred[step]
+              }
+            }
+            if (sum(is.na(arima_fore)) == 0) {
+              past_bb_ts <- bb_ts[(length(bb_ts) - 19):(length(bb_ts))]
+              arima_mae <- mean(abs(arima_fore - past_bb_ts))
+              arima_mse <- mean((arima_fore - past_bb_ts)^2)
+              arima_mape <- mean(abs(arima_fore - past_bb_ts) / past_bb_ts)
+            }
+            arima_pred_errs <- append(arima_pred_errs, c(arima_mae, arima_mse,
+                                                         arima_mape))
+          }
+        }
+      result_df <- rbind(result_df, round(c(fit_bic, arima_pred_errs), 3))
+      models <- append(models, paste0("(", p, ", ", d, ", ", q, ")"))
+    }
+  }
+}
+colnames(result_df) <- c("BIC", "MAE1", "MSE1", "MAPE1", "MAE2", "MSE2", 
+                         "MAPE2", "MAE3", "MSE3", "MAPE3")
+rownames(result_df) <- models
+kable(result_df)
+```
+
+It's clear that the best model for the Strikeout time series is an ARIMA(0, 1, 0). This is interesting, as it doesn't rely on any previous observations or averages once the first-order difference is calculated. Essentially, the differenced time series is a random walk based only on the error term in the model. 
+
+Although the best model for the strikeout time series was very clear, this is not the case with the other five time series. Decisions need to be made based on forecast performance and the likelihood of the model. We do not display all the metrics for all possible models. Instead, we display the metrics for our selected ARIMA models for each time series below.
+
+```{r arima_final_output, echo = FALSE}
+results_mat <- matrix(data = c(c(-24.152, 0.181, 0.044, 0.024, 0.273, 0.108, 
+                               0.035, 0.397, 0.210, 0.051), c(-171.220, 0.080, 
+                               0.010, 0.073, 0.091, 0.015, 0.081, 0.101, 0.019,
+                               0.088), c(8.199, 0.142, 0.027, 0.016, 0.190, 0.048,
+                               0.022, 0.214, 0.066, 0.024), c(-500.661, 0.012, 
+                               "<0.001", 0.034, 0.016, "<0.001", 0.046, 0.016, "<0.001", 
+                               0.046),c(-517.684, 0.017, 0.001, 0.046, 0.025, 
+                               0.001,	0.066, 0.035, 0.002, 0.091), c(-196.273,
+                               0.027, 0.001, 0.056, 0.032, 0.002, 0.070, 0.044,
+                               0.003, 0.096)), 
+                      nrow = 10, ncol = 6, byrow = FALSE)
+model_names <- c("(1, 0, 1)", "(0, 1, 1)", "(0, 1, 1)", 
+                 "(1, 1, 0)", "(0, 1, 0)", "(0, 1, 0)")
+time_series_metrics_df <- data.frame(results_mat)
+time_series_metrics_df <- rbind(model_names, time_series_metrics_df)
+rownames(time_series_metrics_df) <- c("Best ARIMA Model", "BIC", "MAE1", "MSE1", 
+                                      "MAPE1", "MAE2", "MSE2", "MAPE2", "MAE3", 
+                                      "MSE3", "MAPE3")
+colnames(time_series_metrics_df) <- c("SO9", "HR9", "H9", "WP9", "HBP9", "SAC9")
+kable(time_series_metrics_df)
+```
 
 ## Diagnostics
 
@@ -72,3 +414,5 @@ kable(stats)
 ## Discussion
 
 ## Future Work
+
+* Seasonal pattern in Wild Pitches
