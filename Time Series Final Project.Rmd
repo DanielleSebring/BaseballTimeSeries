@@ -5,11 +5,12 @@ date: "5/8/2022"
 output: pdf_document
 ---
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library("Lahman")
-library("dplyr")
-library("kableExtra")
+library(dlm)
+library(dplyr)
+library(kableExtra)
+library(Lahman)
 
 ## Colors for plots
 orange <- "#e87722"
@@ -24,7 +25,7 @@ Major League Baseball (MLB) has collected data on its players and their performa
 
 ## Data Collection
 
-```{r data, include = FALSE}
+```{r data, include = FALSE, message = FALSE, warning = FALSE}
 ## Danielle's Path
 #pitching <- read.csv("~/Spring 2022 5414/BaseballTimeSeries/Datasets/Pitching.csv")
 ## Steven's Path
@@ -50,10 +51,10 @@ Our data has over 100 different statistics measured over the last century. An an
 
 Theses six statistics are all tracked by count (e.g. number of hits in the league per season). However, it is common in sports analytics to look at count variables as averages or rates. This practice reduces extreme values (e.g. the 2020 MLB season was shortened due to COVID-19, resulting in a drastic drop in all statistics) and produces more well-behaved residuals in model fitting. Therefore, for each of these six statistics, we calculate the "per nine innings" rate.
 
-We also found that data from the early years is highly variable. We attribute this to the rudimentary methods of data collection available in the late 1800s as well as the changes that often come as an organization begins. The National League of MLB officially began in 1876. Due to this early variability, we only consider the last 100 years (1922-2021). Therefore, after all data manipulation and cleanup, we have the following statistics for the years 1922-2021:
+We also found that data from the early years is highly variable. We attribute this to the rudimentary methods of data collection available in the late 1800s as well as the changes that often come as an organization begins. The National League of MLB officially began in 1876. Due to this early variability, we only consider the last 100 years (1922-2021). Therefore, after all data manipulation and cleanup, we begin our analysis with statistics for the years 1922-2021 listed in Table 1.
 
 \begin{center}
-```{r stats data table, echo = FALSE}
+```{r stats data table, echo = FALSE, message = FALSE, warning = FALSE}
 stat_names <- c("Strikeouts per Nine Innings", "Home Runs per Nine Innings",
                 "Hits per Nine Innings", "Wild Pitches per Nine Innings", 
                 "Hit by Pitch per Nine Innings", 
@@ -61,13 +62,13 @@ stat_names <- c("Strikeouts per Nine Innings", "Home Runs per Nine Innings",
 stat_ids <- c("SO9", "HR9", "H9", "WP9", "HBP9", "SAC9")
 stats <- data.frame(matrix(c(stat_ids, stat_names), ncol = 2, byrow = F))
 colnames(stats) <- c("Code", "Definition")
-kable(stats)
+kable(stats, caption = "Generated MLB statistics for Time Series Analysis")
 ```
 \end{center} 
 
 ## Model Selection
 
-```{r initialize_ts, echo = FALSE}
+```{r initialize_ts, fig.cap = "MLB league-wide statistics collected from 1922-2021", echo = FALSE, message = FALSE, warning = FALSE}
 ## Initialize Time Series
 so_ts <- ts(pitch_league$SO9, start = 1922, end = 2021, frequency = 1)
 hr_ts <- ts(pitch_league$HR9, start = 1922, end = 2021, frequency = 1)
@@ -145,13 +146,13 @@ axis(1, at = seq(1980, 2020, by = 20), las = 1, cex.axis = 1.05,
 mtext("Sacrifices", side = 2, line = 2.25)
 ```
 
-Above are displayed the six time series of interest. It is clear at first glance that none of these are stationary time series. Therefore, in order to fit a model to these we will either have to consider a Dynamic Linear Model (DLM) or perform some sort of differencing in order to utilize an Auto Regressive or Moving Average model.
+Figure 1 displays the six time series of interest. It is clear at first glance that none of these are stationary time series. Therefore, in order to fit a model to these we will either have to consider a Dynamic Linear Model (DLM) or perform some sort of differencing in order to utilize an Auto Regressive or Moving Average model.
 
 ### Differencing
 
-First, we will calculate a first-order difference on each time series in order to consider fitting Auto Regressive Integrated Moving Average (ARIMA) models. The first-order differencing is displayed below.
+First, we will calculate a first-order difference on each time series in order to consider fitting Auto Regressive Integrated Moving Average (ARIMA) models. The first-order differencing is displayed in Figure 2.
 
-```{r first_order_diff, echo = FALSE}
+```{r first_order_diff, fig.cap = "First-order differencing of MLB time series data", echo = FALSE, message = FALSE, warning = FALSE}
 diff_so_ts <- diff(so_ts, lag = 1)
 diff_hr_ts <- diff(hr_ts, lag = 1)
 diff_hit_ts <- diff(hit_ts, lag = 1)
@@ -227,7 +228,7 @@ For the most part, it appears that the first-order differencing took out all the
 
 We will next attempt to  fit different ARIMA models for these time series. First, we plot the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) for each time series to get a sense of any significant lags that would translate into auto regression or moving average coefficients.
 
-```{r plot_acf_pacf, echo = FALSE}
+```{r plot_acf_pacf, fig.cap = "Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) for differenced MLB time series", echo = FALSE, message = FALSE, warning = FALSE}
 par(mfcol = c(4, 3), mar = c(2.0, 4.0, 2.0, 0.5))
 acf(diff_so_ts, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
     lag = 20)
@@ -312,9 +313,9 @@ mtext("Lag", side = 1, line = 2.0)
 
 As shown above, for the most part we do not see any significant lags in the ACF or PACF for any of the differenced time series. In the Hits time series, it appears that the first lag is barely significant in ACF and the PACF. As such, we will consider an ARIMA model with auto regressive order of 0 and 1 and moving average order of 0 and 1. The Wild Pitches times series also has some interesting behavior. The first lag in the ACF is slightly significant, indicating that we should consider an auto regression coefficient of order 1. However, the most intriguing part is the significant lags of 16 and 18. This indicates that there may be some seasonality in this time series. Looking back at the original time series, we do see some cyclical pattern. It remains to be seen if that is of a regular nature or happens by random chance. 
 
-Now that we have some indication of what lags are significant in the models, we fit all combinations of possible order auto regressive, moving average, and differencing components. We calculate the Bayesian Information Criterion (BIC) for each as well as forecasting error for one, two and three step ahead forecasts. We use mean absolute error (MAE), mean squared error (MSE), and mean absolute percentage error (MAPE). Based on these different metrics, we select what we believe to be the best model between performance and simplicity. For brevity's sake, we will only display the output for the Strikeour time series.
+Now that we have some indication of what lags are significant in the models, we fit all combinations of possible order auto regressive, moving average, and differencing components. We calculate the Bayesian Information Criterion (BIC) for each as well as forecasting error for one, two and three step ahead forecasts. We use mean absolute error (MAE), mean squared error (MSE), and mean absolute percentage error (MAPE). Based on these different metrics, we select what we believe to be the best model between performance and simplicity. For brevity's sake, we will only display the output for the Strikeout time series.
 
-```{r arima_model_selection, message = FALSE, echo = FALSE}
+```{r arima_model_selection, message = FALSE, echo = FALSE, warning = FALSE}
 bb_ts <- so_ts ## Insert time series of interest
 n <- length(bb_ts)
 max_p <- 1
@@ -377,14 +378,14 @@ for (p in 0:max_p) {
 colnames(result_df) <- c("BIC", "MAE1", "MSE1", "MAPE1", "MAE2", "MSE2", 
                          "MAPE2", "MAE3", "MSE3", "MAPE3")
 rownames(result_df) <- models
-kable(result_df)
+kable(result_df, caption = "ARIMA models and their performance metrics for Strikeout time series")
 ```
 
-It's clear that the best model for the Strikeout time series is an ARIMA(0, 1, 0). This is interesting, as it doesn't rely on any previous observations or averages once the first-order difference is calculated. Essentially, the differenced time series is a random walk based only on the error term in the model. 
+It's clear from Table 2 that the best model for the Strikeout time series is an ARIMA(0, 1, 0). This is interesting, as it doesn't rely on any previous observations or averages once the first-order difference is calculated. Essentially, the differenced time series is a random walk based only on the error term in the model. 
 
-Although the best model for the strikeout time series was very clear, this is not the case with the other five time series. Decisions need to be made based on forecast performance and the likelihood of the model. We do not display all the metrics for all possible models. Instead, we display the metrics for our selected ARIMA models for each time series below.
+Although the best model for the strikeout time series was very clear, this is not the case with the other five time series. Decisions need to be made based on forecast performance and the likelihood of the model. We do not display all the metrics for all possible models. Instead, we display the metrics for our selected ARIMA models for each time series in Table 3.
 
-```{r arima_final_output, echo = FALSE}
+```{r arima_final_output, echo = FALSE, message = FALSE, warning = FALSE}
 results_mat <- matrix(data = c(c(-24.152, 0.181, 0.044, 0.024, 0.273, 0.108, 
                                0.035, 0.397, 0.210, 0.051), c(-171.220, 0.080, 
                                0.010, 0.073, 0.091, 0.015, 0.081, 0.101, 0.019,
@@ -404,8 +405,147 @@ rownames(time_series_metrics_df) <- c("Best ARIMA Model", "BIC", "MAE1", "MSE1",
                                       "MAPE1", "MAE2", "MSE2", "MAPE2", "MAE3", 
                                       "MSE3", "MAPE3")
 colnames(time_series_metrics_df) <- c("SO9", "HR9", "H9", "WP9", "HBP9", "SAC9")
-kable(time_series_metrics_df)
+kable(time_series_metrics_df, caption = "ARIMA models selected for each MLB time series")
 ```
+
+### Dynamic Linear Models
+
+We next consider Dynamic Leader Models (DLMs). DLMs allow for better interpretation of parameters in the model than ARIMA models. We are particularly interested in this because our goal is to understand how the time series' we are investigating change over time. As we can see from the original plots of each time series, a clear trend exists in all of them. The trend seems fairly constant, so we believe a second-order polynomial DLM will be sufficient for most, if not all, of the six time series of interest. However, there could be some exceptions to this constant trend. For example, after the year 2010, the trend of the Strikeouts time series potentially increases up until 2021. Therefore, for a thorough analysis, we will consider first-order and third-order polynomial DLMs in addition to first-order polynomials. Once these DLMs are fit, we will select the best model for each time series based on BIC and one, two, and three step ahead forecast errors. We will also compare these metrics to the performance of the ARIMA models fit previously. 
+
+The results of three different polynomial order DLMs for each time series across ten metrics are listed below:
+
+```{r dlm_model_selection, echo = FALSE, message = FALSE, warning = FALSE}
+build_first_order <- function(parm) {
+  dlmModPoly(order = 1, dV = exp(parm[1]), dW = exp(parm[2]))
+}
+
+build_second_order <- function(parm) {
+  dlmModPoly(order = 2, dV = exp(parm[1]), dW = c(exp(parm[2]), exp(parm[3])))
+}
+
+build_third_order <- function(parm) {
+  dlmModPoly(order = 3, dV = exp(parm[1]), dW = c(exp(parm[2]), exp(parm[3]),
+                                                  exp(parm[4])))
+}
+
+time_series_of_interest <- list(so_ts, hr_ts, hit_ts, wp_ts, hbp_ts, sac_ts)
+table_results <- list()
+for (t in 1:length(time_series_of_interest)) {
+  bb_ts <- time_series_of_interest[[t]]
+  n <- length(bb_ts)
+  
+  bb_order1_fit <- dlmMLE(bb_ts, rep(0, 2), build_first_order)
+  is_converged <- bb_order1_fit$convergence
+  est_params <- exp(bb_order1_fit$par)
+  bb_mod_order1 <- build_first_order(bb_order1_fit$par)
+  bb_order1_filt <- dlmFilter(bb_ts, bb_mod_order1)
+  bb_order1_smth <- dlmSmooth(bb_order1_filt)
+  
+  bb_order2_fit <- dlmMLE(bb_ts, rep(0, 3), build_second_order)
+  is_converged <- bb_order2_fit$convergence
+  est_params <- exp(bb_order2_fit$par)
+  bb_mod_order2 <- build_second_order(bb_order2_fit$par)
+  bb_order2_filt <- dlmFilter(bb_ts, bb_mod_order2)
+  bb_order2_smth <- dlmSmooth(bb_order2_filt)
+  
+  bb_order3_fit <- dlmMLE(bb_ts, rep(0, 4), build_third_order)
+  is_converged <- bb_order3_fit$convergence
+  est_params <- exp(bb_order3_fit$par)
+  bb_mod_order3 <- build_third_order(bb_order3_fit$par)
+  bb_order3_filt <- dlmFilter(bb_ts, bb_mod_order3)
+  bb_order3_smth <- dlmSmooth(bb_order3_filt)
+  
+  bb_order1_BIC <- 2 * bb_order1_fit$value + 
+    length(bb_order1_fit$par) * log(length(bb_ts))
+  bb_order2_BIC <- 2 * bb_order2_fit$value + 
+    length(bb_order2_fit$par) * log(length(bb_ts))
+  bb_order3_BIC <- 2 * bb_order3_fit$value + 
+    length(bb_order3_fit$par) * log(length(bb_ts))
+  
+  dlm_pred_errs <- matrix(data = NA, nrow = 3, ncol = 9)
+  for (step in 1:3) {
+    order1_fore <- rep(NA, 10)
+    order2_fore <- rep(NA, 10)
+    order3_fore <- rep(NA, 10)
+    for (i in 1:10) {
+      past_ts <- ts(bb_ts[1:(length(bb_ts) - 10 - step + i)])
+      flag <- tryCatch(
+          {
+              order1_fit <- dlmMLE(past_ts, rep(0, 2), build_first_order)
+              order1_mod <- build_first_order(order1_fit$par)
+              order1_filt <- dlmFilter(past_ts, order1_mod)
+              order2_fit <- dlmMLE(past_ts, rep(0, 3), build_second_order)
+              order2_mod <- build_second_order(order2_fit$par)
+              order2_filt <- dlmFilter(past_ts, order2_mod)
+              order3_fit <- dlmMLE(past_ts, rep(0, 4), build_third_order)
+              order3_mod <- build_third_order(order3_fit$par)
+              order3_filt <- dlmFilter(past_ts, order3_mod)
+              0
+          },
+          error = function(cond) {
+            message("Original error message:")
+            message(cond)
+            return(1)
+          })
+      if (!flag) {
+        order1_fore[i] <- dlmForecast(order1_filt, n = step)$f[step]
+        order2_fore[i] <- dlmForecast(order2_filt, n = step)$f[step]
+        order3_fore[i] <- dlmForecast(order3_filt, n = step)$f[step]
+      }
+    }
+    
+    ## Mean absolute forecast error (MSE)
+    dlm_pred_errs[1,(step * 3 - 2)] <- mean(abs(order1_fore - bb_ts[(n-9):n]), 
+                                            na.rm = TRUE)
+    dlm_pred_errs[2,(step * 3 - 2)] <- mean(abs(order2_fore - bb_ts[(n-9):n]), 
+                                            na.rm = TRUE)
+    dlm_pred_errs[3,(step * 3 - 2)] <- mean(abs(order3_fore - bb_ts[(n-9):n]), 
+                                            na.rm = TRUE)
+    
+    ## Mean squared forecast error (MSE)
+    dlm_pred_errs[1,(step * 3 - 1)] <- mean((order1_fore - bb_ts[(n-9):n])^2, 
+                                            na.rm = TRUE)
+    dlm_pred_errs[2,(step * 3 - 1)] <- mean((order2_fore - bb_ts[(n-9):n])^2, 
+                                            na.rm = TRUE)
+    dlm_pred_errs[3,(step * 3 - 1)] <- mean((order3_fore - bb_ts[(n-9):n])^2, 
+                                            na.rm = TRUE)
+  
+    ## Mean absolute percentage forecast error (MAPE)
+    dlm_pred_errs[1,(step * 3)] <- 
+      mean(abs(order1_fore - bb_ts[(n-9):n]) / bb_ts[(n-9):n], na.rm = TRUE)
+    dlm_pred_errs[2,(step * 3)] <- 
+      mean(abs(order2_fore - bb_ts[(n-9):n]) / bb_ts[(n-9):n], na.rm = TRUE)
+    dlm_pred_errs[3,(step * 3)] <- 
+      mean(abs(order3_fore - bb_ts[(n-9):n]) / bb_ts[(n-9):n], na.rm = TRUE)
+  }
+  
+  bb_ts_results <- data.frame(dlm_pred_errs)
+  bb_ts_results <- round(cbind(c(bb_order1_BIC, bb_order2_BIC, bb_order3_BIC), 
+                               bb_ts_results), 3)
+  rownames(bb_ts_results) <- c("DLM(1)", "DLM(2)", "DLM(3)")
+  colnames(bb_ts_results) <- c("BIC", "MAE1", "MSE1", "MAPE1", "MAE2", "MSE2", 
+                               "MAPE2", "MAE3", "MSE3", "MAPE3")
+  table_results[[t]] <- bb_ts_results
+}
+
+kable(table_results[[1]], caption = "Strikeouts") ## DLM(3)
+kable(table_results[[2]], caption = "Home Runs") ## DLM(2)
+kable(table_results[[3]], caption = "Hits") ## DLM(2)
+kable(table_results[[4]], caption = "Wild Pitches") ## DLM(2)
+kable(table_results[[5]], caption = "Hit by Pitch") ## DLM(2)
+kable(table_results[[6]], caption = "Sacrifices") ## DLM(3)
+```
+
+As shown in the Tables 4-9, there is no consistent pattern in which polynomial order model performs the best. It is consistent that the first-order polynomial DLM always has the lowest BIC value for each time series. This is due to the differences in likelihoods, but is exacerbated by the increased complexity from higher order polynomial models and the penalty BIC puts on more parameters. The model with the lowest BIC does not always perform the best in terms of forecast. In our selection of the best model, we put a premium on forecasting error. If there existed little to no difference in performance in forecasting, we fell back on BIC as a decision maker. With that said, we selected a second-order polynomial model from each time series other than Strikeouts and Sacrifices, each of which we picked a third-order polynomial model for.
+
+Once these were chosen, we compared the results to the ARIMA models chosen early to pick the best performing model for each time series. We originally thought that the DLM model would outperform the ARIMA model in all cases. When using BIC as a criterion, that is certainly true. But as stated previously, we put more emphasis on accuracy in forecasting. Therefore, for two of our time series we selected simple ARIMA models. Our selected models are listed below:
+
+* Strikeouts: DLM(3)
+* Home Runs: ARIMA(0, 1, 1)
+* Hits: DLM(2)
+* Wild Pitches: DLM(2)
+* Hit by Pitch: ARIMA(0, 1, 0) 
+* Sacrifices: DLM(3)
 
 ## Diagnostics
 
@@ -413,6 +553,32 @@ kable(time_series_metrics_df)
 
 ## Discussion
 
+It appears from our analysis that Major League Baseball has become less strategic over the years and more brute strength based. This is easy to see from the basic plot of each of these time series. Strikeouts, Home Runs, Wild Pitches, and Hit by Pitches (all per 9 innings) have increased over time. At the same time, Hits and Sacrifices (sacrifice hits & fly outs) (both per 9 innings) have decreased over the years. 
+
+Forecasting using the models we selected confirms the trend seen in the data. Forecasting indicates that Major League Baseball will continue to become less strategic over time and rely more and more on brute strength. In some instances, the the trends are forecast to continue at an alarming rate. For instance, about 8-9 strikeouts occur over a nine inning game. However, if the trend continues as it has, within 15-20 years, over half of the outs in an average baseball game will come from strikeouts.
+
+We strongly recommend that Major League Baseball investigate these changes and determine how to fix it. In fact, we know that Major League Baseball is already aware of this problem and are testing rule changes or game play procedures in order to address it. For instance, many rule changes are being introduced to Minor League Baseball as a testing ground to measure their effectiveness at resolving the issues. One rule change that has made it's way to MLB is that every team begins with a runner on second base in extra innings. This prevents games from stretching to abnormal lengths and boring fans. However, we don't believe this addresses the real problem. Many of the issues we see likely stem from increased arm strength and pitch velocity. As such, we recommend Major League baseball attempt to move the pitching mound further from home plate in order to give hitters more control and ability to bat strategically.
+
+Lastly, we believe that this analysis shows the usefulness of Dynamic Linear Models. The Hit by Pitch time series illustrates this. The best performing Auto Regressive Integrated Moving Average model was an ARIMA(0, 1, 0). All that was done was to compute a first-order difference that removed the non-stationarity from the time series. But no autoregressive or moving average coefficients were included. When we fit a DLM to the Hit by Pitch time series, the best performing model was a second-order polynomial model. A second-order polynomial DLM models the trend, and the level of the time series acts as a random walk. In fact, that is exactly what occurs in an ARIMA(0, 1, 0) model. Therefore, using a DLM in this case is incredibly helpful to understand the trend and how it varies, something that may be lost when restricted to an ARIMA model.
+
 ## Future Work
 
 * Seasonal pattern in Wild Pitches
+Investigate batting data
+Slugging Percentage
+On Base Percentage
+Employ time varying models
+Incorporate spatial statistics through the spread of balls hit on the diamond
+Overlay historical events with baseball time series data to see correlations
+World Wars
+Women’s Leagues
+Economic Depressions/Recoveries
+Steroid Era
+Integration of Sabermetrics
+
+other variables.
+
+## References
+
+* Lahman, Sean. “Lahman's Baseball Database.” SeanLahman.com, 9 Mar. 2022, https://www.seanlahman.com/baseball-archive/statistics/.
+* “MLB Stats, Scores, History, & Records.” Baseball, https://www.baseball-reference.com/. 
