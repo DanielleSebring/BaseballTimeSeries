@@ -714,6 +714,10 @@ In Table 10 we list the results of formal tests for normality and independence o
 
 ## Forecasting
 
+Next we calculate the 20-year forecast for each of our time series. These forecasts are displayed alongside the time series in Figure 5. As we can see, the difference in the forecasts for the Dynamic Linear and ARIMA models is quite stark. Because the DLMs account for the trend in the time series, that trend is present in the forecast. However, the ARIMA models only project the most recent value. This is likely due to the fact that the models for Home Runs and Hit by Pitch are very simple. The Home Runs time series is modeled using an ARIMA(0, 1, 1). There is no autoregressive component. The Hit by Pitch time series is modeled using an ARIMA(0, 1, 0). There is only a first-order difference taken, and then the resulting time series is a random walk.
+
+We can see that the behavior of the confidence intervals of forecasts varies by time series. Some increase exponentially as time increases, such as Strikeouts and Sacrifices. However, the rest seem to be headed toward a constant interval after some time. We believe this is due to the magnitude of the trend in each time series. Strikouts are increasing at an increased rate, so the uncertainty is higher, whereas Wild Pitches has a much milder increase. Lastly, we see that Sacrifices are projected to go below zero. Obviously this does not make sense, so we should adjust our model to restrict the range of our response.
+
 ```{r forecasting_plots, fig.cap = "20-year forecasts for each MLB time series", echo = FALSE, message = FALSE, warning = FALSE}
 so_fore <- dlmForecast(so_order3_filt, n = 20)
 par(mfrow = c(2, 3), mar = c(2, 3.5, 1, 0) + 0.1, cex = 0.7)
