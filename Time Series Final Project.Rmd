@@ -311,7 +311,7 @@ mtext("PACF", side = 2, line = 2.5)
 mtext("Lag", side = 1, line = 2.0)
 ```
 
-As shown above, for the most part we do not see any significant lags in the ACF or PACF for any of the differenced time series. In the Hits time series, it appears that the first lag is barely significant in ACF and the PACF. As such, we will consider an ARIMA model with auto regressive order of 0 and 1 and moving average order of 0 and 1. The Wild Pitches times series also has some interesting behavior. The first lag in the ACF is slightly significant, indicating that we should consider an auto regression coefficient of order 1. However, the most intriguing part is the significant lags of 16 and 18. This indicates that there may be some seasonality in this time series. Looking back at the original time series, we do see some cyclical pattern. It remains to be seen if that is of a regular nature or happens by random chance. 
+As shown in Figure 3, for the most part we do not see any significant lags in the ACF or PACF for any of the differenced time series. In the Hits time series, it appears that the first lag is barely significant in ACF and the PACF. As such, we will consider an ARIMA model with auto regressive order of 0 and 1 and moving average order of 0 and 1. The Wild Pitches times series also has some interesting behavior. The first lag in the ACF is slightly significant, indicating that we should consider an auto regression coefficient of order 1. However, the most intriguing part is the significant lags of 16 and 18. This indicates that there may be some seasonality in this time series. Looking back at the original time series, we do see some cyclical pattern. It remains to be seen if that is of a regular nature or happens by random chance. 
 
 Now that we have some indication of what lags are significant in the models, we fit all combinations of possible order auto regressive, moving average, and differencing components. We calculate the Bayesian Information Criterion (BIC) for each as well as forecasting error for one, two and three step ahead forecasts. We use mean absolute error (MAE), mean squared error (MSE), and mean absolute percentage error (MAPE). Based on these different metrics, we select what we believe to be the best model between performance and simplicity. For brevity's sake, we will only display the output for the Strikeout time series.
 
@@ -549,12 +549,251 @@ Once these were chosen, we compared the results to the ARIMA models chosen early
 
 ## Diagnostics
 
+Now that we have our selected models, we need to perform some diagnostics to ensure that the assumptions these models need are satisfied. First we plot the ACF and PACF of the residuals from each model. This gives us a sense if there exists any correlation between the observations. As seen in Figure 4, for the most part there are no significant lags in both the ACF and PACF of each time series. The only exception to this is the Wild Pitches time series. There appears to be significant lags of 15 and perhaps 17. This actually lines up with what we found earlier in our analysis, that there may be some cyclical or seasonal behavior. At this point we are satisfied with these results, but we'd like to investigate further in the future. 
+
+```{r diagnostics, fig.cap = "Diagnostic plots for correlation of residuals from fitted models", , echo = FALSE, message = FALSE, warning = FALSE}
+so_order3_fit <- dlmMLE(so_ts, rep(0, 4), build_third_order)
+so_order3_mod <- build_third_order(so_order3_fit$par)
+so_order3_filt <- dlmFilter(so_ts, so_order3_mod)
+so_order3_smth <- dlmSmooth(so_order3_filt)
+
+hr_arima_mod <- arima(hr_ts, order = c(0, 1, 1), method = "CSS-ML")
+
+hits_order2_fit <- dlmMLE(hit_ts, rep(0, 4), build_second_order)
+hits_order2_mod <- build_second_order(hits_order2_fit$par)
+hits_order2_filt <- dlmFilter(hit_ts, hits_order2_mod)
+hits_order2_smth <- dlmSmooth(hits_order2_filt)
+
+wp_order2_fit <- dlmMLE(wp_ts, rep(0, 4), build_second_order)
+wp_order2_mod <- build_second_order(wp_order2_fit$par)
+wp_order2_filt <- dlmFilter(wp_ts, wp_order2_mod)
+wp_order2_smth <- dlmSmooth(wp_order2_filt)
+
+hbp_arima_mod <- arima(hbp_ts, order = c(0, 1, 0), method = "CSS-ML")
+
+sac_order3_fit <- dlmMLE(sac_ts, rep(0, 4), build_third_order)
+sac_order3_mod <- build_third_order(sac_order3_fit$par)
+sac_order3_filt <- dlmFilter(sac_ts, sac_order3_mod)
+sac_order3_smth <- dlmSmooth(sac_order3_filt)
+
+# Get one-step ahead forecast errors (residuals)
+so_fit_res <- residuals(so_order3_filt, sd = TRUE)
+so_res <- so_fit_res$res
+hr_res <- hr_arima_mod$residuals
+hits_fit_res <- residuals(hits_order2_filt, sd = TRUE)
+hits_res <- hits_fit_res$res
+wp_fit_res <- residuals(wp_order2_filt, sd = TRUE)
+wp_res <- wp_fit_res$res
+hbp_res <- hbp_arima_mod$residuals
+sac_fit_res <- residuals(sac_order3_filt, sd = TRUE)
+sac_res <- sac_fit_res$res
+
+# Plot ACF and PACF of one-step ahead forecast errors
+par(mfcol = c(4, 3), mar = c(2.0, 4.0, 2.0, 0.5))
+acf(so_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Strikeouts)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(so_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(wp_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Wild Pitches)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(wp_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(hr_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Home Runs)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(hr_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(hbp_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Hit by Pitch)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(hbp_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(hits_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Hits)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(hits_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+
+par(mar = c(2.0, 4.0, 2.0, 0.5))
+acf(sac_res, main = "", xaxt = "n", yaxt = "n", ylab = "", xlab = "", 
+    lag = 20)
+axis(2, at = seq(-0.2, 1.0, by = 0.4), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("ACF", side = 2, line = 2.5)
+mtext("Residuals (Sacrifices)", side = 3, line = 0.5)
+par(mar = c(3.5, 4.0, 0.5, 0.5))
+pacf(sac_res, xaxt = "n", yaxt = "n", ylab = "", xlab = "", lag = 20)
+axis(2, at = seq(-0.2, 0.2, by = 0.1), las = 1, hadj = 0.7, tck = -0.02)
+axis(1, at = seq(0, 20, by = 5), padj = -0.85, tck = -0.02)
+mtext("PACF", side = 2, line = 2.5)
+mtext("Lag", side = 1, line = 2.0)
+
+stats_p_vals <- matrix(data = NA, nrow = 6, ncol = 4)
+# Test normality with the Shapiro-Wilk normality test
+# H_0: errors are normally distributed
+# H_A: errors are not normally distributed
+stats_p_vals[1,1] <- shapiro.test(so_res)$statistic
+stats_p_vals[1,2] <- shapiro.test(so_res)$p.value
+stats_p_vals[2,1] <- shapiro.test(hr_res)$statistic
+stats_p_vals[2,2] <- shapiro.test(hr_res)$p.value
+stats_p_vals[3,1] <- shapiro.test(hits_res)$statistic
+stats_p_vals[3,2] <- shapiro.test(hits_res)$p.value
+stats_p_vals[4,1] <- shapiro.test(wp_res)$statistic
+stats_p_vals[4,2] <- shapiro.test(wp_res)$p.value
+stats_p_vals[5,1] <- shapiro.test(hbp_res)$statistic
+stats_p_vals[5,2] <- shapiro.test(hbp_res)$p.value
+stats_p_vals[6,1] <- shapiro.test(sac_res)$statistic
+stats_p_vals[6,2] <- shapiro.test(sac_res)$p.value
+
+# Test autocorrelation with the Ljung-Box test
+# H_0: errors are independent
+# H_A: errors exhibit serial correlation
+stats_p_vals[1,3] <- Box.test(so_res, lag=20, type="Ljung")$statistic
+stats_p_vals[1,4] <- Box.test(so_res, lag=20, type="Ljung")$p.value
+stats_p_vals[2,3] <- Box.test(hr_res, lag=20, type="Ljung")$statistic
+stats_p_vals[2,4] <- Box.test(hr_res, lag=20, type="Ljung")$p.value
+stats_p_vals[3,3] <- Box.test(hits_res, lag=20, type="Ljung")$statistic
+stats_p_vals[3,4] <- Box.test(hits_res, lag=20, type="Ljung")$p.value
+stats_p_vals[4,3] <- Box.test(wp_res, lag=20, type="Ljung")$statistic
+stats_p_vals[4,4] <- Box.test(wp_res, lag=20, type="Ljung")$p.value
+stats_p_vals[5,3] <- Box.test(hbp_res, lag=20, type="Ljung")$statistic
+stats_p_vals[5,4] <- Box.test(hbp_res, lag=20, type="Ljung")$p.value
+stats_p_vals[6,3] <- Box.test(sac_res, lag=20, type="Ljung")$statistic
+stats_p_vals[6,4] <- Box.test(sac_res, lag=20, type="Ljung")$p.value
+
+stats_p_vals_df <- data.frame(round(stats_p_vals, 3))
+colnames(stats_p_vals_df) <- c("W", "p-value", "Chi-square", "p-value")
+rownames(stats_p_vals_df) <- c("SO9", "HR9", "H9", "WP9", "HBP9", "SAC9")
+kable(stats_p_vals_df, 
+      caption = "Results of diagnostics test for normality and independence of residuals")
+```
+
+In Table 10 we list the results of formal tests for normality and independence of error. For the normality assumption, we employ the Shapiro-Wilk test. For the testing of correlation among the residuals, we use the Box-Ljung test. For the most part, we are unable to reject the null hypotheses of normality and independence. However, Wild Pitches rejects the null hypothesis, indicating that there exists some correlation among the residuals. This is expected as we saw this in the ACF and PACF. Surprisingly, we also see rejections of normality for the fitted model for Sacrifices and Hit by Pitch. For the Hit by Pitch time series, we employed an ARIMA model. In the future we may go back and use a DLM or other ARIMA model if it satisfies the assumptions better. For the Sacrifices time series, if we instead use a second-order polynomial DLM, the assumptions are satisfied. This will result in a drop in forecasting performance, but the assumptions will be satisfied.
+
 ## Forecasting
+
+```{r forecasting_plots, fig.cap = "20-year forecasts for each MLB time series", echo = FALSE, message = FALSE, warning = FALSE}
+so_fore <- dlmForecast(so_order3_filt, n = 20)
+par(mfrow = c(2, 3), mar = c(2, 3.5, 1, 0) + 0.1, cex = 0.7)
+so_fc_ll <- so_fore$f - 1.96 * sqrt(unlist(so_fore$Q))
+so_fc_ul <- so_fore$f + 1.96 * sqrt(unlist(so_fore$Q))
+plot(so_ts, xlim = c(1922, 2041), xlab = "", ylim = c(2.5, 16.5),
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(so_fore$f, lty = 1, col = maroon, lwd = 2)
+lines(so_fc_ll, lty = 2, col = orange, lwd = 2)
+lines(so_fc_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Strikeouts", side = 2, line = 2.25)
+
+hr_fore <- predict(hr_arima_mod, n.ahead = 20)
+hr_fore_ll <- hr_fore$pred  - 1.96 * hr_fore$se
+hr_fore_ul <- hr_fore$pred  + 1.96 * hr_fore$se
+plot(hr_ts, xlim = c(1922, 2041), xlab = "", ylim = c(0.0, 2.0),
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(hr_fore$pred, lty = 1, col = maroon, lwd = 2)
+lines(hr_fore_ll, lty = 2, col = orange, lwd = 2)
+lines(hr_fore_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Home Runs", side = 2, line = 2.25)
+
+hits_fore <- dlmForecast(hits_order2_filt, n = 20)
+hits_fc_ll <- hits_fore$f - 1.96 * sqrt(unlist(hits_fore$Q))
+hits_fc_ul <- hits_fore$f + 1.96 * sqrt(unlist(hits_fore$Q))
+plot(hit_ts, xlim = c(1922, 2041), ylim = c(6, 11), xlab = "",
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(hits_fore$f, lty = 1, col = maroon, lwd = 2)
+lines(hits_fc_ll, lty = 2, col = orange, lwd = 2)
+lines(hits_fc_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Hits", side = 2, line = 2.25)
+
+wp_fore <- dlmForecast(wp_order2_filt, n = 20)
+par(mar=c(2,3.5,1,0) + 0.1, cex=0.7)
+wp_fc_ll <- wp_fore$f - 1.96 * sqrt(unlist(wp_fore$Q))
+wp_fc_ul <- wp_fore$f + 1.96 * sqrt(unlist(wp_fore$Q))
+plot(wp_ts, xlim = c(1922, 2041), ylim = c(0.05, 0.65), xlab = "",
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(wp_fore$f, lty = 1, col = maroon, lwd = 2)
+lines(wp_fc_ll, lty = 2, col = orange, lwd = 2)
+lines(wp_fc_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Wild Pitches", side = 2, line = 2.25)
+
+hbp_fore <- predict(hbp_arima_mod, n.ahead = 20)
+hbp_fore_ll <- hbp_fore$pred  - 1.96 * hbp_fore$se
+hbp_fore_ul <- hbp_fore$pred  + 1.96 * hbp_fore$se
+plot(hbp_ts, xlim = c(1922, 2041), xlab = "", ylim = c(0.0, 0.65),
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(hbp_fore$pred, lty = 1, col = maroon, lwd = 2)
+lines(hbp_fore_ll, lty = 2, col = orange, lwd = 2)
+lines(hbp_fore_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Hit by Pitch", side = 2, line = 2.25)
+
+sac_fore <- dlmForecast(sac_order3_filt, n = 20)
+par(mar=c(2,3.5,1,0) + 0.1, cex=0.7)
+sac_fc_ll <- sac_fore$f - 1.96 * sqrt(unlist(sac_fore$Q))
+sac_fc_ul <- sac_fore$f + 1.96 * sqrt(unlist(sac_fore$Q))
+plot(sac_ts, xlim = c(1971, 2041), xlab = "", ylim = c(0.0, 0.8),
+     ylab = "", type = 'o', col = gray, axes = FALSE)
+lines(sac_fore$f, lty = 1, col = maroon, lwd = 2)
+lines(sac_fc_ll, lty = 2, col = orange, lwd = 2)
+lines(sac_fc_ul, lty = 2, col = orange, lwd = 2)
+axis(1)
+axis(2)
+mtext("Sacrifices", side = 2, line = 2.25)
+```
 
 ## Discussion
 
 It appears from our analysis that Major League Baseball has become less strategic over the years and more brute strength based. This is easy to see from the basic plot of each of these time series. Strikeouts, Home Runs, Wild Pitches, and Hit by Pitches (all per 9 innings) have increased over time. At the same time, Hits and Sacrifices (sacrifice hits & fly outs) (both per 9 innings) have decreased over the years. 
-
 Forecasting using the models we selected confirms the trend seen in the data. Forecasting indicates that Major League Baseball will continue to become less strategic over time and rely more and more on brute strength. In some instances, the the trends are forecast to continue at an alarming rate. For instance, about 8-9 strikeouts occur over a nine inning game. However, if the trend continues as it has, within 15-20 years, over half of the outs in an average baseball game will come from strikeouts.
 
 We strongly recommend that Major League Baseball investigate these changes and determine how to fix it. In fact, we know that Major League Baseball is already aware of this problem and are testing rule changes or game play procedures in order to address it. For instance, many rule changes are being introduced to Minor League Baseball as a testing ground to measure their effectiveness at resolving the issues. One rule change that has made it's way to MLB is that every team begins with a runner on second base in extra innings. This prevents games from stretching to abnormal lengths and boring fans. However, we don't believe this addresses the real problem. Many of the issues we see likely stem from increased arm strength and pitch velocity. As such, we recommend Major League baseball attempt to move the pitching mound further from home plate in order to give hitters more control and ability to bat strategically.
@@ -563,20 +802,13 @@ Lastly, we believe that this analysis shows the usefulness of Dynamic Linear Mod
 
 ## Future Work
 
-* Seasonal pattern in Wild Pitches
-Investigate batting data
-Slugging Percentage
-On Base Percentage
-Employ time varying models
-Incorporate spatial statistics through the spread of balls hit on the diamond
-Overlay historical events with baseball time series data to see correlations
-World Wars
-Women’s Leagues
-Economic Depressions/Recoveries
-Steroid Era
-Integration of Sabermetrics
+This analysis is far from comprehensive and has only shown us how much more there can be done. As stated at the beginning of the report, this dataset contains over 100 statistics tracked over the last 150 years. This analysis only covers six of those. In the future we would like to investigate the following:
 
-other variables.
+* Slugging percentage and On-base percentage: these metrics track how often a player gets on base and puts weight on what type of hit it is (e.g. double, triple). The increase in popularity of data analytics has had a major effect on these statistics. Therefore, we'd like to see what change occurred and what the forecast for these statistics holds
+* Time-varying models: as we've seen, the trends of some of our statistics change throughout time. We've only scrateched the service of exploring time-varying components. We'd like to explore more sophisticated time-varying models that may fit our data better.
+* Spatiotemporal models: all our analysis was of a temporal nature. We'd like to incorporate any spatial components into our models and projects. For instance, where the pitches predominiantly fall in the strike zone most likely has evolved over time. Additionally, where balls land after hits on the field has likely also changed. There is great potential for insight from this data on how the game has changed and how it will likely continue to change.
+* Wild Pitches: our analysis did not account for any cyclical or seasonal trend in any of our time series. We felt justified in this because of the lack of evidence and knowledge of the game. However, in the Wild Pitches time series, there appears to be some cyclical behavior. We'd like to explore that further.
+* Other variables: there are potential factors that influence a time series outside of the time series itself. We would like to consider other variables that may be helpful in model fit and lead to improved forecasting.
 
 ## References
 
